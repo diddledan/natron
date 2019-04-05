@@ -1,0 +1,106 @@
+name: natron
+summary: natron
+description: natron
+adopt-info: natron
+
+grade: stable
+confinement: strict
+base: core
+
+apps:
+  natron:
+    command: desktop-launch $SNAP/usr/local/bin/Natron
+    desktop: usr/local/share/applications/fr.natron.Natron.desktop
+    plugs:
+    - home
+    - opengl
+    - removable-media
+    - wayland
+    - x11
+
+parts:
+  desktop-qt4:
+    source: https://github.com/ubuntu/snapcraft-desktop-helpers.git
+    source-subdir: qt
+    plugin: make
+    make-parameters: ["FLAVOR=qt4"]
+    build-packages:
+    - libqt4-dev
+    - dpkg-dev
+    stage-packages:
+    - libxkbcommon0
+    - ttf-ubuntu-font-family
+    - dmz-cursor-theme
+    - light-themes
+    - adwaita-icon-theme
+    - gnome-themes-standard
+    - shared-mime-info
+    - libqtgui4
+    - libgdk-pixbuf2.0-0
+    - libqt4-svg # for loading icon themes which are svg
+    - appmenu-qt
+    - locales-all
+    - sni-qt
+
+  natron:
+    # parse-info: [usr/local/share/metainfo/fr.natron.Natron.appdata.xml]
+    source: https://github.com/NatronGitHub/Natron.git
+    plugin: qmake
+    options:
+    - CONFIG+=stable
+    qt-version: qt4
+    override-pull: |
+      snapcraftctl pull
+      last_committed_tag="$(git describe --tags --abbrev=0)"
+      last_released_tag="$(snap info $SNAPCRAFT_PROJECT_NAME | awk '$1 == "beta:" { print $2 }')"
+      # If the latest tag from the upstream project has not been released to
+      # beta, build that tag instead of master.
+      if [ "${last_committed_tag}" != "${last_released_tag}" ]; then
+        git fetch
+        git checkout "${last_committed_tag}"
+        snapcraftctl set-version "$(echo "${last_committed_tag}" | sed -E -e "s|^$SNAPCRAFT_PROJECT_NAME-?||i")"
+      else
+        snapcraftctl set-version "$(git rev-parse --short HEAD)"
+      fi
+
+      cat <<EOF > config.pri
+      boost-serialization-lib: LIBS += -lboost_serialization
+      boost: LIBS += -lboost_thread -lboost_system
+      expat: LIBS += -lexpat
+      expat: PKGCONFIG -= expat
+      cairo: PKGCONFIG -= cairo
+      pyside {
+        PYSIDE_PKG_CONFIG_PATH = \$\$system(\$\$PYTHON_CONFIG --prefix)/lib/pkgconfig:\$\$(PKG_CONFIG_PATH)
+        PKGCONFIG += pyside
+        INCLUDEPATH += \$\$system(env PKG_CONFIG_PATH=\$\$PYSIDE_PKG_CONFIG_PATH pkg-config --variable=includedir pyside)/QtCore
+        INCLUDEPATH += \$\$system(env PKG_CONFIG_PATH=\$\$PYSIDE_PKG_CONFIG_PATH pkg-config --variable=includedir pyside)/QtGui
+      }
+      EOF
+      
+      curl -k -L https://github.com/NatronGitHub/OpenColorIO-Configs/archive/Natron-v2.3.tar.gz | tar zxf -
+      mv OpenColorIO-Configs-Natron-v2.3 OpenColorIO-Configs
+    build-packages:
+    - libqt4-dev
+    - libboost-serialization-dev
+    - libboost-system-dev
+    - libboost-thread-dev
+    - libexpat1-dev
+    - libcairo2-dev
+    - python-dev
+    - python-pyside
+    - libpyside-dev
+    - libshiboken-dev
+    stage-packages:
+    - libboost-serialization1.58.0
+    - libglapi-mesa
+    - libglu1-mesa
+    - libgomp1
+    - libpixman-1-0
+    - libpyside1.2
+    - libqt4-network
+    - libqt4-opengl
+    - libqtcore4
+    - libqtgui4
+    - libshiboken1.2v5
+    - python
+    - python-pyside
