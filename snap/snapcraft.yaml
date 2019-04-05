@@ -12,6 +12,8 @@ apps:
     command: desktop-launch $SNAP/usr/local/bin/Natron
     desktop: usr/local/share/applications/fr.natron.Natron.desktop
     plugs:
+    - desktop
+    - desktop-legacy
     - home
     - opengl
     - removable-media
